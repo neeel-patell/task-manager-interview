@@ -129,7 +129,7 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg-base);
   color: var(--text-primary);
-  min-width: 1280px;
+  min-width: 320px;   /* v2: responsive down to mobile; v1 behaviour preserved via page-level min-width */
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -230,3 +230,38 @@ input, textarea, select {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-full); }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ─── Responsive: global mobile adjustments (v2) ─────────────────────────── */
+
+@media (max-width: 768px) {
+  :root {
+    --sp-5: 16px;
+    --sp-6: 20px;
+  }
+
+  /* Modals fill screen on mobile */
+  .modal-content {
+    width: calc(100vw - 32px) !important;
+    max-height: 90dvh !important;
+  }
+
+  /* Table horizontal scroll on mobile */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Board: horizontal scroll already works; reduce padding */
+  .board-scroll {
+    padding: var(--sp-3) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  html { font-size: 14px; }
+
+  .column {
+    width: 240px !important;
+    min-width: 240px !important;
+  }
+}

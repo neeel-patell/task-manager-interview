@@ -1,5 +1,17 @@
 # Task Manager — SpectroNova Take-Home Assessment
 
+## Branch structure
+
+| Branch | Purpose |
+|---|---|
+| `task-manager-as-per-interview` | Original submission — feature-complete v1 exactly as assessed |
+| `v2` | All known limitations resolved (tests, mobile, pagination, keyboard nav, local fonts, Kanban filters) |
+| `main` | Merge of both branches — contains the full history of v1 and v2 |
+
+> Access v1 at `/` and v2 at `/v2` when running locally. Both routes are served from the same dev server.
+
+---
+
 ## Setup
 
 ```bash
@@ -20,14 +32,16 @@ Requirements: Node ≥ 18, npm ≥ 9.
 ### Component hierarchy
 
 ```
-App.vue
-└── pages/taskManager/index.vue          ← single TaskManager instance lives here
-    ├── ViewToggle.vue                   ← Kanban ↔ List switcher (v-model)
-    ├── KanbanBoard.vue                  ← dynamic column layout + add-board widget
-    │   └── KanbanColumn.vue (×N)        ← drop zone, TransitionGroup, empty state
-    │       └── TaskCard.vue (×N)        ← draggable, priority strip, avatar stack
-    ├── ListView.vue                     ← flat table with toolbar (sort + filter)
-    └── TaskModal.vue                    ← create / edit form (Teleported to body)
+App.vue  (RouterView)
+├── / → pages/taskManager/index.vue      ← v1 (original submission)
+│   ├── ViewToggle.vue                   ← Kanban ↔ List switcher (v-model)
+│   ├── KanbanBoard.vue                  ← dynamic column layout + add-board widget
+│   │   └── KanbanColumn.vue (×N)        ← drop zone, TransitionGroup, empty state
+│   │       └── TaskCard.vue (×N)        ← draggable, priority strip, avatar stack, Move-to menu
+│   ├── ListView.vue                     ← flat table with toolbar (sort + filter + pagination)
+│   └── TaskModal.vue                    ← create / edit form (Teleported to body)
+└── /v2 → pages/v2/index.vue             ← v2 (all known limitations resolved)
+    └── (same component tree)
 ```
 
 State flows **strictly downward** via typed props. `TaskManager` is instantiated once in `index.vue` and passed as a prop to every component that needs it — no Pinia, no Vuex, no `provide`/`inject`.
@@ -88,17 +102,18 @@ The `ITaskManager` interface in `types.ts` describes the full public API. Compon
 
 ## Known limitations
 
-| Area | Detail |
-|---|---|
-| Dribbble reference | Not provided — design is built from the spec's typography table and design rules only. All colours are driven by CSS custom properties in `src/style.css`; a single `:root` update propagates globally once the reference arrives. |
-| `TaskStatus` widened | Changed from literal union `'todo' \| 'in-progress' \| 'done'` to `string` to support user-created boards. The three core statuses are enforced as protected at the business-logic layer. |
-| `assignees: string[]` | Extended from single `assignee: string`. A `migrateTasks()` helper converts existing `{ assignee }` localStorage records to `{ assignees: [...] }` on load. |
-| Due-date validation on edit | Spec says "due date not in the past" applies to both create and edit. Updating an already-overdue task's title while the due date remains past will fail validation — spec-compliant but creates friction in practice. |
-| No keyboard drag-and-drop | Native HTML5 DnD has no keyboard path. Screen-reader users can change a task's column via the Edit modal. |
-| No mobile layout | Spec requires 1280 px minimum width; mobile breakpoints are not implemented. |
-| No pagination / virtualisation | List view renders all tasks. Fine for the mock dataset; virtual-scroll needed for thousands of rows. |
-| Inter font via CDN | Adds one external request. Replace with locally hosted fonts before production. |
-| No test suite | Assessment scope did not specify tests. Unit tests for `TaskManager` (CRUD, `filterAndSort`, `isOverdue`) would be the first addition. |
+| Area | Detail | Status |
+|---|---|---|
+| Dribbble reference | Not provided — design is built from the spec's typography table and design rules only. All colours are driven by CSS custom properties in `src/style.css`; a single `:root` update propagates globally once the reference arrives. | Open |
+| `TaskStatus` widened | Changed from literal union `'todo' \| 'in-progress' \| 'done'` to `string` to support user-created boards. The three core statuses are enforced as protected at the business-logic layer. | By design |
+| `assignees: string[]` | Extended from single `assignee: string`. A `migrateTasks()` helper converts existing `{ assignee }` localStorage records to `{ assignees: [...] }` on load. | By design |
+| Due-date validation on edit | Updating an already-overdue task's title while the due date stays past no longer blocks save. Validation now only rejects a past date when the date itself has changed. | **Fixed in v2** |
+| No keyboard drag-and-drop | Native HTML5 DnD has no keyboard path. | **Fixed in v2** — "Move to" button on each card opens a keyboard-navigable column menu |
+| No mobile layout | Spec requires 1280 px minimum width; mobile breakpoints were not implemented. | **Fixed in v2** — responsive CSS added (`@media 768px` / `480px`); `min-width` lowered to 320 px |
+| No pagination / virtualisation | List view renders all tasks at once. | **Fixed in v2** — infinite-scroll pagination (20 tasks per page) added to List view |
+| Inter font via CDN | Adds one external request. | **Fixed in v2** — `@fontsource/inter` bundled locally via npm |
+| No test suite | Assessment scope did not specify tests. | **Fixed in v2** — 32 Vitest unit tests covering CRUD, `filterAndSort`, `isOverdue`, `getFilteredByStatus`, member + status management |
+| No Kanban filters | Priority/assignee/search filters existed in List view but not on the Kanban board. | **Fixed in v2** — filter toolbar added above Kanban board, sharing the same `FilterState` contract |
 
 ---
 
