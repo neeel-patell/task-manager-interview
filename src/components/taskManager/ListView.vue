@@ -27,7 +27,7 @@ const sortState = ref<SortState>({
   direction: 'asc',
 })
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 const allSortedTasks = computed<Task[]>(() =>
   props.manager.filterAndSort(filterState.value, sortState.value),
