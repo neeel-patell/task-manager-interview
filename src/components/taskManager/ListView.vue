@@ -40,6 +40,7 @@ watch([filterState, sortState], () => { page.value = 1 }, { deep: true })
 const totalPages = computed<number>(() => Math.max(1, Math.ceil(allSortedTasks.value.length / PAGE_SIZE)))
 
 const sortedTasks = computed<Task[]>(() => {
+  if (!props.paginated) return allSortedTasks.value
   const start = (page.value - 1) * PAGE_SIZE
   return allSortedTasks.value.slice(start, start + PAGE_SIZE)
 })
@@ -327,8 +328,8 @@ const PRIORITY_OPTIONS: { value: TaskPriority | null; label: string }[] = [
       </table>
     </div>
 
-    <!-- ── Pagination ──────────────────────────────────────────────────── -->
-    <div v-if="totalPages > 1" class="pagination" role="navigation" aria-label="Pagination">
+    <!-- ── Pagination (v2 only — enabled via paginated prop) ──────────── -->
+    <div v-if="paginated && totalPages > 1" class="pagination" role="navigation" aria-label="Pagination">
       <button
         class="page-btn page-btn--arrow"
         :disabled="page === 1"
