@@ -5,10 +5,10 @@
 | Branch | Purpose |
 |---|---|
 | `task-manager-as-per-interview` | Original submission — feature-complete v1 exactly as assessed |
-| `v2` | All known limitations resolved (tests, mobile, pagination, keyboard nav, local fonts, Kanban filters) |
-| `main` | Merge of both branches — contains the full history of v1 and v2 |
+| `limitations-resolved` | All known v1 limitations resolved (see table below) |
+| `main` | Merge of both branches — full history of v1 and limitations-resolved |
 
-> Access v1 at `/` and v2 at `/v2` when running locally. Both routes are served from the same dev server.
+> **Live demo:** `/` serves v1, `/v2` serves the limitations-resolved build — both routes run from the same dev server and the same Vercel deployment.
 
 ---
 
@@ -19,6 +19,7 @@ npm install
 npm run dev        # starts at http://localhost:5173
 npm run build      # production build
 npm run type-check # TypeScript validation
+npm run test       # Vitest unit suite (32 tests)
 ```
 
 Requirements: Node ≥ 18, npm ≥ 9.
@@ -33,15 +34,16 @@ Requirements: Node ≥ 18, npm ≥ 9.
 
 ```
 App.vue  (RouterView)
-├── / → pages/taskManager/index.vue      ← v1 (original submission)
-│   ├── ViewToggle.vue                   ← Kanban ↔ List switcher (v-model)
-│   ├── KanbanBoard.vue                  ← dynamic column layout + add-board widget
-│   │   └── KanbanColumn.vue (×N)        ← drop zone, TransitionGroup, empty state
-│   │       └── TaskCard.vue (×N)        ← draggable, priority strip, avatar stack, Move-to menu
-│   ├── ListView.vue                     ← flat table with toolbar (sort + filter + pagination)
-│   └── TaskModal.vue                    ← create / edit form (Teleported to body)
-└── /v2 → pages/v2/index.vue             ← v2 (all known limitations resolved)
-    └── (same component tree)
+├── /   → pages/taskManager/index.vue   ← v1 (original submission)
+│   ├── ViewToggle.vue                  ← Kanban ↔ List switcher (v-model)
+│   ├── KanbanBoard.vue                 ← dynamic columns, filter toolbar, drag-expand drop zone
+│   │   └── KanbanColumn.vue (×N)       ← drop zone, TransitionGroup, empty state, status dot
+│   │       └── TaskCard.vue (×N)       ← draggable, priority strip, avatar stack, Move-to menu
+│   ├── ListView.vue                    ← flat table, sort + filter toolbar
+│   │                                     (paginated prop off in v1 — all tasks shown at once)
+│   └── TaskModal.vue                   ← create / edit form (Teleported to body)
+└── /v2 → pages/v2/index.vue            ← limitations-resolved build
+    └── (same component tree; ListView receives :paginated="true" → 10 rows + page bar)
 ```
 
 State flows **strictly downward** via typed props. `TaskManager` is instantiated once in `index.vue` and passed as a prop to every component that needs it — no Pinia, no Vuex, no `provide`/`inject`.
@@ -62,7 +64,7 @@ The `ITaskManager` interface in `types.ts` describes the full public API. Compon
 | `createTask` | `push()` on `_tasks.value`; Vue tracks array mutations |
 | `deleteTask` | `splice()` on `_tasks.value` |
 | `filterAndSort` | Called inside a `computed()` in `ListView`; re-evaluates whenever `_tasks.value` changes |
-| `getTasksByStatus` | Called inside a `computed()` in `KanbanColumn`; re-evaluates on any tasks change |
+| `getFilteredByStatus` | Called inside a `computed()` in `KanbanColumn`; re-evaluates on any tasks change |
 
 ---
 
@@ -76,15 +78,15 @@ The `ITaskManager` interface in `types.ts` describes the full public API. Compon
 
 ### 2. Drag-and-drop via native HTML5 API
 
-**Chose**: `draggable="true"` on cards, `dragstart` / `dragover.prevent` / `drop` on columns. `DataTransfer.setData('text/plain', taskId)` carries the payload; `moveTo` on drop.  
+**Chose**: `draggable="true"` on cards, `dragstart` / `dragover.prevent` / `drop` on columns. `DataTransfer.setData('text/plain', taskId)` carries the payload; `moveTo` on drop. The "Add another board" widget is also a drop target — dropping a card onto it auto-creates a new column and moves the card there.  
 **Why**: Zero library overhead; the HTML5 DnD API is sufficient for a single-board task manager.  
-**With more time**: Keyboard-accessible reordering (ARIA `treeitem` + arrow-key navigation), a custom ghost image via `setDragImage`, and mobile touch support via Pointer Events.
+**With more time**: Custom ghost image via `setDragImage`, mobile touch support via Pointer Events.
 
 ### 3. Single-file CSS design-token system
 
 **Chose**: All spacing, colour, shadow, and radius values are CSS custom properties defined in `src/style.css`. Components reference tokens via `var(--priority-high-fg)` etc.  
 **Why**: When the Dribbble reference arrives, only the `:root` block needs updating — components are insulated from the colour/spacing change.  
-**With more time**: Move tokens to a dedicated `tokens.css`, support dark-mode via `prefers-color-scheme`, and drive the palette from a design-token JSON that feeds both CSS and Figma.
+**With more time**: Move tokens to a dedicated `tokens.css`, support dark-mode via `prefers-color-scheme`.
 
 ### 4. Atlassian/Jira-inspired visual theme
 
@@ -107,13 +109,15 @@ The `ITaskManager` interface in `types.ts` describes the full public API. Compon
 | Dribbble reference | Not provided — design is built from the spec's typography table and design rules only. All colours are driven by CSS custom properties in `src/style.css`; a single `:root` update propagates globally once the reference arrives. | Open |
 | `TaskStatus` widened | Changed from literal union `'todo' \| 'in-progress' \| 'done'` to `string` to support user-created boards. The three core statuses are enforced as protected at the business-logic layer. | By design |
 | `assignees: string[]` | Extended from single `assignee: string`. A `migrateTasks()` helper converts existing `{ assignee }` localStorage records to `{ assignees: [...] }` on load. | By design |
-| Due-date validation on edit | Updating an already-overdue task's title while the due date stays past no longer blocks save. Validation now only rejects a past date when the date itself has changed. | **Fixed in v2** |
-| No keyboard drag-and-drop | Native HTML5 DnD has no keyboard path. | **Fixed in v2** — "Move to" button on each card opens a keyboard-navigable column menu |
-| No mobile layout | Spec requires 1280 px minimum width; mobile breakpoints were not implemented. | **Fixed in v2** — responsive CSS added (`@media 768px` / `480px`); `min-width` lowered to 320 px |
-| No pagination / virtualisation | List view renders all tasks at once. | **Fixed in v2** — infinite-scroll pagination (20 tasks per page) added to List view |
-| Inter font via CDN | Adds one external request. | **Fixed in v2** — `@fontsource/inter` bundled locally via npm |
-| No test suite | Assessment scope did not specify tests. | **Fixed in v2** — 32 Vitest unit tests covering CRUD, `filterAndSort`, `isOverdue`, `getFilteredByStatus`, member + status management |
-| No Kanban filters | Priority/assignee/search filters existed in List view but not on the Kanban board. | **Fixed in v2** — filter toolbar added above Kanban board, sharing the same `FilterState` contract |
+| Due-date validation on edit | Spec says "due date not in the past" for both create and edit. In v1, editing an overdue task's title while the date remains past would block the save. | **Fixed in limitations-resolved** — validation only rejects a past date when the date field itself changes |
+| No keyboard drag-and-drop | Native HTML5 DnD has no keyboard path. Screen-reader users could only change column via the Edit modal. | **Fixed in limitations-resolved** — "Move to" button on each card opens a keyboard-navigable ARIA menu |
+| No mobile layout | Spec requires 1280 px minimum width; mobile breakpoints were not implemented. | **Fixed in limitations-resolved** — responsive CSS added (`@media 768px` / `480px`); `min-width` lowered to 320 px |
+| No pagination | List view rendered all tasks at once. | **Fixed in limitations-resolved** — numbered pagination (10 rows/page, `‹ 1 2 … n ›` bar); gated behind a `paginated` prop so v1 route is unaffected |
+| Inter font via CDN | Adds one external network request on every page load. | **Fixed in limitations-resolved** — `@fontsource/inter` bundled locally via npm; zero CDN requests |
+| No test suite | Assessment scope did not specify tests. | **Fixed in limitations-resolved** — 32 Vitest unit tests covering CRUD, `filterAndSort`, `isOverdue`, `getFilteredByStatus`, member + status management |
+| No Kanban filters | Priority/assignee/search filters existed in List view but not on the Kanban board. | **Fixed in limitations-resolved** — filter toolbar above Kanban board shares the same `FilterState` contract |
+| Status dot visibility | Column-header status dots used colours too close to the indigo column background (`#6366F1` in-progress on `#EEF2FF` bg). | **Fixed in both branches** — dots updated to violet-700 / emerald-600 / slate-500; size 8 px → 10 px with white ring |
+| Add-board drag affordance | Dragging a card gave no visible hint that dropping on the "Add another board" widget creates a new column. | **Fixed in both branches** — widget expands into a tall dashed drop zone showing "Drop here to create a new board" while any card is being dragged |
 
 ---
 
