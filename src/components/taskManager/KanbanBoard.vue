@@ -125,7 +125,14 @@ function confirmRemove(): void {
 
 // ── Drop onto "Add board" widget ─────────────────────────────────────────
 
+const isAnyDragging = ref(false)
 const isAddBoardDragOver = ref(false)
+
+function onBoardDragStart(): void { isAnyDragging.value = true }
+function onBoardDragEnd(): void {
+  isAnyDragging.value = false
+  isAddBoardDragOver.value = false
+}
 
 function generateNewBoardName(): string {
   const base = 'new-board'
@@ -268,7 +275,7 @@ function onRename(status: TaskStatus, label: string): void { props.manager.renam
       </div>
     </div>
 
-    <div class="board-scroll">
+    <div class="board-scroll" @dragstart="onBoardDragStart" @dragend="onBoardDragEnd">
       <div class="board">
       <KanbanColumn
         v-for="(col, idx) in columns"
@@ -290,42 +297,57 @@ function onRename(status: TaskStatus, label: string): void { props.manager.renam
         @rename="onRename"
       />
 
-      <!-- Add board widget — also a drop target for creating a new board -->
+      <!-- Add board widget — expands into a prominent drop zone while dragging -->
       <div
         class="add-col-widget"
-        :class="{ 'add-col-widget--drag-over': isAddBoardDragOver }"
+        :class="{
+          'add-col-widget--dragging':  isAnyDragging && !showAddCol,
+          'add-col-widget--drag-over': isAddBoardDragOver,
+        }"
         @dragover="onAddBoardDragOver"
         @dragenter="onAddBoardDragEnter"
         @dragleave="onAddBoardDragLeave"
         @drop="onAddBoardDrop"
       >
-        <div v-if="showAddCol" class="add-col-form">
-          <input
-            ref="addColInputRef"
-            v-model="newColName"
-            class="add-col-input"
-            type="text"
-            placeholder="Board name…"
-            autocomplete="off"
-            @keydown.enter="commitAddCol"
-            @keydown.escape="cancelAddCol"
-            @blur="onAddColBlur"
-          />
-          <div class="add-col-actions">
-            <button class="add-col-confirm" @click="commitAddCol">Add board</button>
-            <button class="add-col-cancel" @click="cancelAddCol">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <path d="M3 3l8 8M11 3L3 11" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-        <button v-else class="add-col-btn" @click="openAddCol">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-            <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <!-- Drag-expand state: shown while any card is being dragged -->
+        <div v-if="isAnyDragging && !showAddCol" class="add-col-drop-zone">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+            <rect x="1.5" y="1.5" width="25" height="25" rx="5" stroke="currentColor" stroke-width="1.75" stroke-dasharray="4 3"/>
+            <path d="M14 8v12M8 14h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          Add another board
-        </button>
+          <span class="add-col-drop-label">Drop here to create<br>a new board</span>
+        </div>
+
+        <!-- Normal state: input form or "+ Add another board" button -->
+        <template v-else>
+          <div v-if="showAddCol" class="add-col-form">
+            <input
+              ref="addColInputRef"
+              v-model="newColName"
+              class="add-col-input"
+              type="text"
+              placeholder="Board name…"
+              autocomplete="off"
+              @keydown.enter="commitAddCol"
+              @keydown.escape="cancelAddCol"
+              @blur="onAddColBlur"
+            />
+            <div class="add-col-actions">
+              <button class="add-col-confirm" @click="commitAddCol">Add board</button>
+              <button class="add-col-cancel" @click="cancelAddCol">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <path d="M3 3l8 8M11 3L3 11" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <button v-else class="add-col-btn" @click="openAddCol">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Add another board
+          </button>
+        </template>
       </div>
       </div>
     </div>
@@ -613,6 +635,45 @@ function onRename(status: TaskStatus, label: string): void { props.manager.renam
   width: 272px;
   min-width: 272px;
   align-self: flex-start;
+  transition: min-height var(--duration-normal) var(--ease-out-expo);
+}
+
+/* Expand to a tall drop zone while any card is being dragged */
+.add-col-widget--dragging {
+  align-self: stretch;
+  min-height: 160px;
+}
+
+.add-col-drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  height: 100%;
+  min-height: 160px;
+  border-radius: var(--radius-lg);
+  border: 2px dashed var(--border);
+  color: var(--text-muted);
+  background: var(--bg-column);
+  transition:
+    background var(--duration-fast) var(--ease),
+    border-color var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
+}
+
+.add-col-drop-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.add-col-widget--drag-over .add-col-drop-zone {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  border-style: solid;
+  color: var(--accent);
 }
 
 .add-col-btn {
@@ -636,12 +697,6 @@ function onRename(status: TaskStatus, label: string): void { props.manager.renam
   background: var(--bg-surface);
   color: var(--accent);
   border-color: var(--accent);
-}
-.add-col-widget--drag-over .add-col-btn {
-  background: var(--accent-light);
-  color: var(--accent);
-  border-color: var(--accent);
-  border-style: solid;
 }
 
 .add-col-form {
