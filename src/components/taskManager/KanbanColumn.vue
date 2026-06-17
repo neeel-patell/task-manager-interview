@@ -275,10 +275,11 @@ function onDrop(event: DragEvent): void {
 }
 
 .column-dot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: var(--radius-full);
   flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--bg-surface);
 }
 .dot--todo        { background: var(--status-todo); }
 .dot--in-progress { background: var(--status-in-progress); }

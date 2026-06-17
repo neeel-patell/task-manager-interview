@@ -40,9 +40,9 @@
   --priority-low-border:  #4C9AFF;
 
   /* Status */
-  --status-todo:        #626F86;
-  --status-in-progress: #6366F1;
-  --status-done:        #036B52;
+  --status-todo:        #64748B;   /* slate-500 — neutral "not started" */
+  --status-in-progress: #7C3AED;   /* violet-700 — distinct from indigo column bg */
+  --status-done:        #059669;   /* emerald-600 — bright, readable green */
 
   /* Danger */
   --danger:       #DE350B;
