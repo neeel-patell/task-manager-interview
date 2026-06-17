@@ -1,5 +1,17 @@
 # Task Manager — SpectroNova Take-Home Assessment
 
+## Branch structure
+
+| Branch | Purpose |
+|---|---|
+| `task-manager-as-per-interview` | **This branch** — original submission, feature-complete v1 |
+| `limitations-resolved` | All known v1 limitations resolved (see Known limitations table) |
+| `main` | Merge of both branches — full history |
+
+> **Live demo:** this branch is served at `/` on the deployed app. The `limitations-resolved` improvements are at `/v2`.
+
+---
+
 ## Setup
 
 ```bash
@@ -23,10 +35,10 @@ Requirements: Node ≥ 18, npm ≥ 9.
 App.vue
 └── pages/taskManager/index.vue          ← single TaskManager instance lives here
     ├── ViewToggle.vue                   ← Kanban ↔ List switcher (v-model)
-    ├── KanbanBoard.vue                  ← dynamic column layout + add-board widget
-    │   └── KanbanColumn.vue (×N)        ← drop zone, TransitionGroup, empty state
+    ├── KanbanBoard.vue                  ← dynamic columns, filter toolbar, drag-expand drop zone
+    │   └── KanbanColumn.vue (×N)        ← drop zone, TransitionGroup, empty state, status dot
     │       └── TaskCard.vue (×N)        ← draggable, priority strip, avatar stack
-    ├── ListView.vue                     ← flat table with toolbar (sort + filter)
+    ├── ListView.vue                     ← flat table with toolbar (sort + filter, all tasks shown)
     └── TaskModal.vue                    ← create / edit form (Teleported to body)
 ```
 
@@ -48,7 +60,7 @@ The `ITaskManager` interface in `types.ts` describes the full public API. Compon
 | `createTask` | `push()` on `_tasks.value`; Vue tracks array mutations |
 | `deleteTask` | `splice()` on `_tasks.value` |
 | `filterAndSort` | Called inside a `computed()` in `ListView`; re-evaluates whenever `_tasks.value` changes |
-| `getTasksByStatus` | Called inside a `computed()` in `KanbanColumn`; re-evaluates on any tasks change |
+| `getFilteredByStatus` | Called inside a `computed()` in `KanbanColumn`; re-evaluates on any tasks change |
 
 ---
 
@@ -62,9 +74,9 @@ The `ITaskManager` interface in `types.ts` describes the full public API. Compon
 
 ### 2. Drag-and-drop via native HTML5 API
 
-**Chose**: `draggable="true"` on cards, `dragstart` / `dragover.prevent` / `drop` on columns. `DataTransfer.setData('text/plain', taskId)` carries the payload; `moveTo` on drop.  
+**Chose**: `draggable="true"` on cards, `dragstart` / `dragover.prevent` / `drop` on columns. `DataTransfer.setData('text/plain', taskId)` carries the payload; `moveTo` on drop. Dropping a card onto the "Add another board" widget auto-creates a new column and moves the card there — the widget expands into a visible drop zone while dragging.  
 **Why**: Zero library overhead; the HTML5 DnD API is sufficient for a single-board task manager.  
-**With more time**: Keyboard-accessible reordering (ARIA `treeitem` + arrow-key navigation), a custom ghost image via `setDragImage`, and mobile touch support via Pointer Events.
+**With more time**: Custom ghost image via `setDragImage`, mobile touch support via Pointer Events.
 
 ### 3. Single-file CSS design-token system
 
@@ -88,17 +100,19 @@ The `ITaskManager` interface in `types.ts` describes the full public API. Compon
 
 ## Known limitations
 
-| Area | Detail |
-|---|---|
-| Dribbble reference | Not provided — design is built from the spec's typography table and design rules only. All colours are driven by CSS custom properties in `src/style.css`; a single `:root` update propagates globally once the reference arrives. |
-| `TaskStatus` widened | Changed from literal union `'todo' \| 'in-progress' \| 'done'` to `string` to support user-created boards. The three core statuses are enforced as protected at the business-logic layer. |
-| `assignees: string[]` | Extended from single `assignee: string`. A `migrateTasks()` helper converts existing `{ assignee }` localStorage records to `{ assignees: [...] }` on load. |
-| Due-date validation on edit | Spec says "due date not in the past" applies to both create and edit. Updating an already-overdue task's title while the due date remains past will fail validation — spec-compliant but creates friction in practice. |
-| No keyboard drag-and-drop | Native HTML5 DnD has no keyboard path. Screen-reader users can change a task's column via the Edit modal. |
-| No mobile layout | Spec requires 1280 px minimum width; mobile breakpoints are not implemented. |
-| No pagination / virtualisation | List view renders all tasks. Fine for the mock dataset; virtual-scroll needed for thousands of rows. |
-| Inter font via CDN | Adds one external request. Replace with locally hosted fonts before production. |
-| No test suite | Assessment scope did not specify tests. Unit tests for `TaskManager` (CRUD, `filterAndSort`, `isOverdue`) would be the first addition. |
+Items marked **Resolved in limitations-resolved** are addressed in the `limitations-resolved` branch (accessible at `/v2` on the live demo).
+
+| Area | Detail | Status |
+|---|---|---|
+| Dribbble reference | Not provided — design is built from the spec's typography table and design rules only. All colours are driven by CSS custom properties; a single `:root` update propagates globally once the reference arrives. | Open |
+| `TaskStatus` widened | Changed from literal union to `string` to support user-created boards. Core statuses are protected at the business-logic layer. | By design |
+| `assignees: string[]` | Extended from single `assignee: string`. A `migrateTasks()` helper converts existing records on load. | By design |
+| Due-date validation on edit | Editing an overdue task's title while the date stays past blocks the save — spec-compliant but creates friction. | Resolved in `limitations-resolved` |
+| No keyboard drag-and-drop | Native HTML5 DnD has no keyboard path. Column can be changed via the Edit modal as a workaround. | Resolved in `limitations-resolved` |
+| No mobile layout | Spec requires 1280 px minimum width; mobile breakpoints are not implemented. | Resolved in `limitations-resolved` |
+| No pagination | List view renders all tasks at once. Fine for the mock dataset; would need pagination for large datasets. | Resolved in `limitations-resolved` |
+| Inter font via CDN | Adds one external network request on every page load. | Resolved in `limitations-resolved` |
+| No test suite | Assessment scope did not specify tests. Unit tests for `TaskManager` would be the first addition. | Resolved in `limitations-resolved` |
 
 ---
 
