@@ -102,6 +102,7 @@ export interface TaskCardProps {
 
 export interface ListViewProps {
   manager: ITaskManager
+  paginated?: boolean
 }
 
 export interface ViewToggleProps {

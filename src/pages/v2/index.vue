@@ -113,6 +113,7 @@ function cancelDelete(): void {
       <ListView
         v-else
         :manager="manager"
+        :paginated="true"
         @edit="openEditModal"
         @delete="requestDelete"
       />
