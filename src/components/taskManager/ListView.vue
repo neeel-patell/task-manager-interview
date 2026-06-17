@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type {
   ListViewProps,
   ListViewEmitEvents,
@@ -27,9 +27,21 @@ const sortState = ref<SortState>({
   direction: 'asc',
 })
 
-const sortedTasks = computed<Task[]>(() =>
+const PAGE_SIZE = 20
+
+const allSortedTasks = computed<Task[]>(() =>
   props.manager.filterAndSort(filterState.value, sortState.value),
 )
+
+const page = ref(1)
+
+watch([filterState, sortState], () => { page.value = 1 }, { deep: true })
+
+const sortedTasks = computed<Task[]>(() => allSortedTasks.value.slice(0, page.value * PAGE_SIZE))
+
+const hasMore = computed<boolean>(() => sortedTasks.value.length < allSortedTasks.value.length)
+
+function loadMore(): void { page.value++ }
 
 const assignees = computed<string[]>(() => props.manager.getAssignees())
 
@@ -143,7 +155,9 @@ const PRIORITY_OPTIONS: { value: TaskPriority | null; label: string }[] = [
       </div>
 
       <div class="toolbar-right">
-        <span class="task-count">{{ sortedTasks.length }} task{{ sortedTasks.length !== 1 ? 's' : '' }}</span>
+        <span class="task-count">
+          {{ sortedTasks.length }}{{ hasMore ? `+` : '' }} of {{ allSortedTasks.length }} task{{ allSortedTasks.length !== 1 ? 's' : '' }}
+        </span>
       </div>
     </div>
 
@@ -287,6 +301,15 @@ const PRIORITY_OPTIONS: { value: TaskPriority | null; label: string }[] = [
                   </svg>
                 </button>
               </div>
+            </td>
+          </tr>
+
+          <!-- Load more row -->
+          <tr v-if="hasMore">
+            <td colspan="7" class="load-more-row">
+              <button class="load-more-btn" @click="loadMore">
+                Load more ({{ allSortedTasks.length - sortedTasks.length }} remaining)
+              </button>
             </td>
           </tr>
 
@@ -624,6 +647,33 @@ const PRIORITY_OPTIONS: { value: TaskPriority | null; label: string }[] = [
 }
 .action-btn:hover         { color: var(--accent); background: var(--accent-light); }
 .action-btn--delete:hover { color: var(--danger); background: var(--danger-light); }
+
+/* ── Load more ──────────────────────────────────────────────────────────── */
+
+.load-more-row td {
+  text-align: center;
+  padding: var(--sp-4);
+  border-top: 1px solid var(--border-light);
+}
+
+.load-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-column);
+  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+}
+.load-more-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent);
+}
 
 /* ── Empty row ──────────────────────────────────────────────────────────── */
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { TaskCardProps, TaskCardEmitEvents } from '../../BLL/taskManager/types'
+import type { TaskCardProps, TaskCardEmitEvents, TaskStatus } from '../../BLL/taskManager/types'
 import { getAvatarColor, getInitials } from '../../BLL/taskManager/TaskManager'
 
 const props = defineProps<TaskCardProps>()
@@ -41,6 +41,29 @@ function onDragStart(event: DragEvent): void {
 function onDragEnd(): void {
   isDragging.value = false
 }
+
+// ── Move-to menu (keyboard / mouse alternative to drag) ───────────────────
+
+const moveMenuOpen = ref(false)
+
+const otherStatuses = computed<TaskStatus[]>(() =>
+  props.manager.statuses.filter((s) => s !== props.task.status),
+)
+
+function toggleMoveMenu(e: Event): void {
+  e.stopPropagation()
+  moveMenuOpen.value = !moveMenuOpen.value
+}
+
+function moveTo(status: TaskStatus, e: Event): void {
+  e.stopPropagation()
+  props.manager.moveTo(props.task.id, status)
+  moveMenuOpen.value = false
+}
+
+function onMenuKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape') { moveMenuOpen.value = false }
+}
 </script>
 
 <template>
@@ -55,8 +78,32 @@ function onDragEnd(): void {
     <!-- Priority colour strip (Trello-style label bar at top) -->
     <div class="priority-strip" :class="`strip--${props.task.priority}`" />
 
-<!-- Quick actions (visible on hover) -->
-    <div class="card-actions" @click.stop>
+<!-- Quick actions (visible on hover / focus-within) -->
+    <div class="card-actions" @click.stop @keydown="onMenuKeydown">
+      <!-- Move-to menu -->
+      <div class="move-wrap">
+        <button
+          class="action-btn"
+          :aria-label="`Move task: ${props.task.title}`"
+          :aria-expanded="moveMenuOpen"
+          title="Move to column"
+          @click.stop="toggleMoveMenu"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M2 6h8M7 3l3 3-3 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+        <ul v-if="moveMenuOpen" class="move-menu" role="menu" :aria-label="`Move ${props.task.title} to`">
+          <li v-for="status in otherStatuses" :key="status" role="none">
+            <button
+              role="menuitem"
+              class="move-item"
+              @click="moveTo(status, $event)"
+            >{{ props.manager.getStatusLabel(status) }}</button>
+          </li>
+        </ul>
+      </div>
+
       <button class="action-btn" title="Edit task" @click.stop="emit('edit', props.task)">
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
           <path d="M8.5 1.5L10.5 3.5L3.5 10.5H1.5V8.5L8.5 1.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
@@ -197,7 +244,8 @@ function onDragEnd(): void {
   z-index: 2;
 }
 
-.card:hover .card-actions { opacity: 1; }
+.card:hover .card-actions,
+.card-actions:focus-within { opacity: 1; }
 
 .action-btn {
   display: flex;
@@ -350,5 +398,46 @@ function onDragEnd(): void {
   color: var(--text-secondary);
   border-color: var(--bg-surface);
   font-size: 0.5rem;
+}
+
+/* ── Move-to menu ───────────────────────────────────────────────────────── */
+
+.move-wrap {
+  position: relative;
+}
+
+.move-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  list-style: none;
+  min-width: 120px;
+  z-index: 10;
+  padding: var(--sp-1) 0;
+  animation: scaleInFade 120ms var(--ease-out-expo) both;
+}
+
+.move-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 5px var(--sp-3);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+  white-space: nowrap;
+}
+.move-item:hover, .move-item:focus-visible {
+  background: var(--accent-light);
+  color: var(--accent);
+  outline: none;
 }
 </style>

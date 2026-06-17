@@ -292,8 +292,13 @@ function validate(): boolean {
 
   if (!form.value.dueDate) {
     errs.dueDate = 'Due date is required.'
-  } else if (form.value.dueDate < todayISO()) {
-    errs.dueDate = 'Due date cannot be in the past.'
+  } else {
+    const today = todayISO()
+    const dateChanged = !isEditing.value || form.value.dueDate !== props.task?.dueDate
+    // Only block a past date when creating, or when the user actively changed it to a past date.
+    if (dateChanged && form.value.dueDate < today) {
+      errs.dueDate = 'Due date cannot be set to a past date.'
+    }
   }
 
   if (form.value.assignees.length === 0) {
