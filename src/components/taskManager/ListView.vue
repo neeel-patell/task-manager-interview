@@ -37,11 +37,20 @@ const page = ref(1)
 
 watch([filterState, sortState], () => { page.value = 1 }, { deep: true })
 
-const sortedTasks = computed<Task[]>(() => allSortedTasks.value.slice(0, page.value * PAGE_SIZE))
+const totalPages = computed<number>(() => Math.max(1, Math.ceil(allSortedTasks.value.length / PAGE_SIZE)))
 
-const hasMore = computed<boolean>(() => sortedTasks.value.length < allSortedTasks.value.length)
+const sortedTasks = computed<Task[]>(() => {
+  const start = (page.value - 1) * PAGE_SIZE
+  return allSortedTasks.value.slice(start, start + PAGE_SIZE)
+})
 
-function loadMore(): void { page.value++ }
+const pageNumbers = computed<(number | '…')[]>(() => {
+  const total = totalPages.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  if (page.value <= 4) return [1, 2, 3, 4, 5, '…', total]
+  if (page.value >= total - 3) return [1, '…', total - 4, total - 3, total - 2, total - 1, total]
+  return [1, '…', page.value - 1, page.value, page.value + 1, '…', total]
+})
 
 const assignees = computed<string[]>(() => props.manager.getAssignees())
 
@@ -156,7 +165,7 @@ const PRIORITY_OPTIONS: { value: TaskPriority | null; label: string }[] = [
 
       <div class="toolbar-right">
         <span class="task-count">
-          {{ sortedTasks.length }}{{ hasMore ? `+` : '' }} of {{ allSortedTasks.length }} task{{ allSortedTasks.length !== 1 ? 's' : '' }}
+          {{ allSortedTasks.length }} task{{ allSortedTasks.length !== 1 ? 's' : '' }}
         </span>
       </div>
     </div>
@@ -304,15 +313,6 @@ const PRIORITY_OPTIONS: { value: TaskPriority | null; label: string }[] = [
             </td>
           </tr>
 
-          <!-- Load more row -->
-          <tr v-if="hasMore">
-            <td colspan="7" class="load-more-row">
-              <button class="load-more-btn" @click="loadMore">
-                Load more ({{ allSortedTasks.length - sortedTasks.length }} remaining)
-              </button>
-            </td>
-          </tr>
-
           <!-- Empty state -->
           <tr v-if="sortedTasks.length === 0">
             <td colspan="7" class="empty-row">
@@ -325,6 +325,43 @@ const PRIORITY_OPTIONS: { value: TaskPriority | null; label: string }[] = [
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- ── Pagination ──────────────────────────────────────────────────── -->
+    <div v-if="totalPages > 1" class="pagination" role="navigation" aria-label="Pagination">
+      <button
+        class="page-btn page-btn--arrow"
+        :disabled="page === 1"
+        aria-label="Previous page"
+        @click="page--"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M9 11L5 7l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <template v-for="n in pageNumbers" :key="n">
+        <span v-if="n === '…'" class="page-ellipsis">…</span>
+        <button
+          v-else
+          class="page-btn"
+          :class="{ 'page-btn--active': page === n }"
+          :aria-label="`Page ${n}`"
+          :aria-current="page === n ? 'page' : undefined"
+          @click="page = n"
+        >{{ n }}</button>
+      </template>
+
+      <button
+        class="page-btn page-btn--arrow"
+        :disabled="page === totalPages"
+        aria-label="Next page"
+        @click="page++"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
     </div>
   </div>
 </template>
@@ -648,31 +685,62 @@ const PRIORITY_OPTIONS: { value: TaskPriority | null; label: string }[] = [
 .action-btn:hover         { color: var(--accent); background: var(--accent-light); }
 .action-btn--delete:hover { color: var(--danger); background: var(--danger-light); }
 
-/* ── Load more ──────────────────────────────────────────────────────────── */
+/* ── Pagination ─────────────────────────────────────────────────────────── */
 
-.load-more-row td {
-  text-align: center;
-  padding: var(--sp-4);
-  border-top: 1px solid var(--border-light);
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-5);
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+  flex-shrink: 0;
 }
 
-.load-more-btn {
+.page-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-5);
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--sp-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--text-secondary);
-  background: var(--bg-column);
-  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+  background: var(--bg-surface);
+  transition:
+    border-color var(--duration-fast) var(--ease),
+    background var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease);
 }
-.load-more-btn:hover {
+.page-btn:hover:not(:disabled) {
   border-color: var(--accent);
   background: var(--accent-light);
   color: var(--accent);
+}
+.page-btn--active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.page-btn--active:hover { background: var(--accent-hover); }
+
+.page-btn--arrow { color: var(--text-muted); }
+.page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.page-ellipsis {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  user-select: none;
 }
 
 /* ── Empty row ──────────────────────────────────────────────────────────── */
